@@ -300,7 +300,7 @@
 
 <script>
 // ─── CONFIG ─────────────────────────────────────────────────────────────────
-let supabase = null;
+let sbClient = null;
 let currentUser = '';
 let activeTab = 'gastos';
 let tChart = null;
@@ -369,7 +369,7 @@ function supabaseCreateClient(url, key) {
 }
 
 async function startApp(url, key, user) {
-  supabase = supabaseCreateClient(url, key);
+  sbClient = supabaseCreateClient(url, key);
   currentUser = user;
   document.getElementById('header-sub').textContent = 'Conectado como ' + user;
   document.getElementById('config-screen').style.display='none';
@@ -415,7 +415,7 @@ function showAlert(id, msg, type) {
 async function loadGastos() {
   const el = document.getElementById('gastos-list');
   try {
-    const {data,error} = await supabase.from('gastos').select('*').order('fecha',{ascending:false}).order('id',{ascending:false}).limit(20);
+    const {data,error} = await sbClient.from('gastos').select('*').order('fecha',{ascending:false}).order('id',{ascending:false}).limit(20);
     if(error) throw error;
     if(!data.length) { el.innerHTML='<div class="empty">Sin gastos aún. ¡Registrá el primero!</div>'; return; }
     el.innerHTML = `<div class="tbl-wrap"><table>
@@ -442,7 +442,7 @@ async function addGasto() {
   const btn = document.querySelector('#sec-gastos .btn-p');
   btn.textContent = 'Guardando...'; btn.disabled = true;
   try {
-    const {error} = await supabase.from('gastos').insert({
+    const {error} = await sbClient.from('gastos').insert({
       descripcion: d, monto: m, fecha: f,
       categoria: document.getElementById('gc').value,
       miembro: document.getElementById('gmb').value,
@@ -462,7 +462,7 @@ async function addGasto() {
 
 async function delGasto(id) {
   if(!confirm('¿Eliminar este gasto?')) return;
-  const {error} = await supabase.from('gastos').delete().eq('id',id);
+  const {error} = await sbClient.from('gastos').delete().eq('id',id);
   if(!error) await loadGastos();
 }
 
@@ -470,7 +470,7 @@ async function delGasto(id) {
 async function loadIngresos() {
   const cur = curMes();
   try {
-    const {data,error} = await supabase.from('ingresos').select('*').order('fecha',{ascending:false}).order('id',{ascending:false}).limit(30);
+    const {data,error} = await sbClient.from('ingresos').select('*').order('fecha',{ascending:false}).order('id',{ascending:false}).limit(30);
     if(error) throw error;
     const mi = data.filter(i=>i.fecha.slice(0,7)===cur);
     const totI = mi.reduce((s,i)=>s+Number(i.monto),0);
@@ -508,7 +508,7 @@ async function addIngreso() {
   const btn = document.querySelector('#sec-ingresos .btn-p');
   btn.textContent='Guardando...'; btn.disabled=true;
   try {
-    const {error} = await supabase.from('ingresos').insert({
+    const {error} = await sbClient.from('ingresos').insert({
       descripcion: d, monto: m, fecha: f,
       tipo: document.getElementById('it').value,
       quien: document.getElementById('iq').value,
@@ -526,7 +526,7 @@ async function addIngreso() {
 
 async function delIngreso(id) {
   if(!confirm('¿Eliminar este ingreso?')) return;
-  const {error} = await supabase.from('ingresos').delete().eq('id',id);
+  const {error} = await sbClient.from('ingresos').delete().eq('id',id);
   if(!error) await loadIngresos();
 }
 
@@ -539,8 +539,8 @@ async function loadHistorico() {
     const meses = Array.from({length:6},(_,i)=>addMonths(cur,-5+i));
     const desde = meses[0]+'-01';
     const [rG, rI] = await Promise.all([
-      supabase.from('gastos').select('*').gte('fecha',desde),
-      supabase.from('ingresos').select('*').gte('fecha',desde)
+      sbClient.from('gastos').select('*').gte('fecha',desde),
+      sbClient.from('ingresos').select('*').gte('fecha',desde)
     ]);
     if(rG.error) throw rG.error;
     if(rI.error) throw rI.error;
@@ -595,9 +595,9 @@ async function loadPrevision() {
     const cur = curMes();
     const meses = Array.from({length:6},(_,i)=>addMonths(cur,i));
     const [rG, rI, rE] = await Promise.all([
-      supabase.from('gastos').select('*').gte('fecha',cur+'-01'),
-      supabase.from('ingresos').select('*').gte('fecha',cur+'-01'),
-      supabase.from('estimaciones').select('*')
+      sbClient.from('gastos').select('*').gte('fecha',cur+'-01'),
+      sbClient.from('ingresos').select('*').gte('fecha',cur+'-01'),
+      sbClient.from('estimaciones').select('*')
     ]);
     if(rG.error) throw rG.error;
     const gastos=rG.data, ingresos=rI.data;
@@ -648,7 +648,7 @@ async function saveEstimaciones() {
     for(const m of meses) {
       const ti = parseFloat(document.getElementById('ei-'+m)?.value)||0;
       const tg = parseFloat(document.getElementById('eg-'+m)?.value)||0;
-      await supabase.from('estimaciones').upsert({mes:m, total_ingresos:ti, total_gastos:tg},{onConflict:'mes'});
+      await sbClient.from('estimaciones').upsert({mes:m, total_ingresos:ti, total_gastos:tg},{onConflict:'mes'});
     }
     const el = document.getElementById('prev-alert');
     el.className='alert alert-ok'; el.textContent='Estimaciones guardadas ✓'; el.style.display='block';
@@ -668,8 +668,8 @@ async function loadDashboard() {
     const cur = curMes();
     const desde6 = addMonths(cur,-5)+'-01';
     const [rG, rI] = await Promise.all([
-      supabase.from('gastos').select('*').gte('fecha',desde6),
-      supabase.from('ingresos').select('*').gte('fecha',desde6)
+      sbClient.from('gastos').select('*').gte('fecha',desde6),
+      sbClient.from('ingresos').select('*').gte('fecha',desde6)
     ]);
     if(rG.error) throw rG.error;
     const gastos=rG.data, ingresos=rI.data;
